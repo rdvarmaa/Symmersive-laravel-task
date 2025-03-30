@@ -6,13 +6,14 @@ use App\Models\Recipe;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
+use App\Http\Resources\RecipeResource;
 
 class RecipeController extends Controller
 {
     // gets all recipes
     public function index()
     {
-        return response()->json(Recipe::all(), 200);
+        return RecipeResource::collection(Recipe::all());
     }
     public function store(Request $request)
     {
@@ -30,7 +31,10 @@ class RecipeController extends Controller
             $recipe = Recipe::create($validated);
 
             Log::info($recipe);
-            return response()->json($recipe, 201);
+            return response()->json([
+                'message' => 'Recipe created successfully',
+                'recipe' => new RecipeResource($recipe)
+            ], 201);
         } catch (\Illuminate\Validation\ValidationException $ValidationException) {
             Log::info($ValidationException->errors());
             return response()->json(['errors' => $ValidationException->errors()], 422);
@@ -42,9 +46,9 @@ class RecipeController extends Controller
     {
         $recipe = Recipe::find($id);
         if (!$recipe) {
-            return response()->json(['message' => 'Recipe 4 not found'], 404);
+            return response()->json(['message' => 'Recipe not found'], 404);
         }
-        return response()->json($recipe, 200);
+        return new RecipeResource($recipe);
     }
 
     public function update(Request $request, $id)
@@ -52,7 +56,7 @@ class RecipeController extends Controller
         Log::info('Incoming Request Data:');
         $recipe = Recipe::find($id);
         if (!$recipe) {
-            return response()->json(['message' => 'Recipe 3 not found'], 404);
+            return response()->json(['message' => 'Recipe not found'], 404);
         }
         try {
             $validated = $request->validate([
@@ -65,7 +69,10 @@ class RecipeController extends Controller
             ]);
 
             $recipe->update($validated);
-            return response()->json($recipe, 200);
+            return response()->json([
+                'message' => 'Recipe updated successfully',
+                'recipe' => new RecipeResource($recipe)
+            ], 201);
         } catch (\Illuminate\Validation\ValidationException $ValidationException) {
             Log::info($ValidationException->errors());
             return response()->json(['errors' => $ValidationException->errors()], 422);
@@ -87,18 +94,29 @@ class RecipeController extends Controller
 
     public function filterByDifficulty($level)
     {
-        if (!in_array($level, ['easy', 'medium', 'hard'])) {
-            return response()->json(['message' => 'Invalid difficulty level'], 400);
+
+        if (!$level || !in_array($level, ['easy', 'medium', 'hard'])) {
+            return response()->json([
+                'message' => 'Invalid difficulty level. Use easy, medium, or hard.'
+            ], 400);
         }
 
-        return response()->json(Recipe::where('difficulty', $level)->get(), 200);
+        $recipes = Recipe::where('difficulty', $level)->get();
+
+        if ($recipes->isEmpty()) {
+            return response()->json([
+                'message' => 'No recipes found for this difficulty.'
+            ], 404);
+        }
+
+        return RecipeResource::collection($recipes);
     }
 
     public function searchRecipes(Request $request)
     {
         Log::info('Incoming Request Data:', $request->all());
         try {
-            
+
             $validated = $request->validate([
                 'ingredients' => 'sometimes|string',
                 'min_time' => 'sometimes|integer|min:1',
@@ -125,7 +143,13 @@ class RecipeController extends Controller
 
 
             Log::info('Search Results:', $recipes->toArray());
-            return response()->json($recipes);
+            if ($recipes->isEmpty()) {
+                return response()->json([
+                    'message' => 'No recipes found for this difficulty.'
+                ], 404);
+            }
+
+            return RecipeResource::collection($recipes);
         } catch (\Illuminate\Validation\ValidationException $ValidationException) {
             Log::info($ValidationException->errors());
             return response()->json(['errors' => $ValidationException->errors()], 422);
