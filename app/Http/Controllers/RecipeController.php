@@ -86,7 +86,7 @@ class RecipeController extends Controller
         Log::info('Incoming Request Data:');
         $recipe = Recipe::find($id);
         if (!$recipe) {
-            return response()->json(['message' => 'Recipe 1 not found'], 404);
+            return response()->json(['message' => 'Recipe not found'], 404);
         }
         $recipe->delete();
         return response()->json(['message' => 'Recipe deleted'], 200);
