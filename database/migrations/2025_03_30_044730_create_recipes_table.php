@@ -20,6 +20,7 @@ return new class extends Migration
             $table->enum('difficulty', ['easy', 'medium', 'hard']);
             $table->text('description');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
@@ -28,6 +29,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('recipes');
+        Schema::table('recipes', function (Blueprint $table) {
+            $table->dropSoftDeletes();
+        });
     }
 };

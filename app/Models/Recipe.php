@@ -9,4 +9,15 @@ class Recipe extends Model
 {
     /** @use HasFactory<\Database\Factories\RecipeFactory> */
     use HasFactory;
+
+    protected $fillable = [
+        'name',
+        'ingredients',
+        'prep_time',
+        'cook_time',
+        'difficulty',
+        'description',
+    ];
+
+    protected $dates = ['deleted_at'];
 }
