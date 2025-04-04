@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Recipe;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
 class RecipeSeeder extends Seeder
 {
@@ -14,7 +13,7 @@ class RecipeSeeder extends Seeder
      */
     public function run(): void
     {
-        Log::info("Seeding");
+        Log::info('Seeding');
         $json = file_get_contents(database_path('seed_data/recipe.json')); // get contents from sample data file
         Log::info($json);
         $recipes = json_decode($json);

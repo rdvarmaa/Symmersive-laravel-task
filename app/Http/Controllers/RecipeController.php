@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\RecipeResource;
 use App\Models\Recipe;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
-use App\Http\Resources\RecipeResource;
+use Illuminate\Validation\Rule;
 
 class RecipeController extends Controller
 {
@@ -15,6 +15,7 @@ class RecipeController extends Controller
     {
         return RecipeResource::collection(Recipe::all());
     }
+
     public function store(Request $request)
     {
         Log::info('Incoming Request Data:', $request->all());
@@ -25,29 +26,33 @@ class RecipeController extends Controller
                 'prep_time' => 'required|integer|min:1',
                 'cook_time' => 'required|integer|min:1',
                 'difficulty' => ['required', Rule::in(['easy', 'medium', 'hard'])],
-                'description' => 'required|string'
+                'description' => 'required|string',
             ]);
             Log::info('Validated Data:', $validated); //
             $recipe = Recipe::create($validated);
 
             Log::info($recipe);
+
             return response()->json([
                 'message' => 'Recipe created successfully',
-                'recipe' => new RecipeResource($recipe)
+                'recipe' => new RecipeResource($recipe),
             ], 201);
         } catch (\Illuminate\Validation\ValidationException $ValidationException) {
             Log::info($ValidationException->errors());
+
             return response()->json(['errors' => $ValidationException->errors()], 422);
         } catch (\Exception $exception) {
             return response()->json(['errors' => $exception->getMessage()], 422);
         }
     }
+
     public function show($id)
     {
         $recipe = Recipe::find($id);
-        if (!$recipe) {
+        if (! $recipe) {
             return response()->json(['message' => 'Recipe not found'], 404);
         }
+
         return new RecipeResource($recipe);
     }
 
@@ -55,7 +60,7 @@ class RecipeController extends Controller
     {
         Log::info('Incoming Request Data:');
         $recipe = Recipe::find($id);
-        if (!$recipe) {
+        if (! $recipe) {
             return response()->json(['message' => 'Recipe not found'], 404);
         }
         try {
@@ -65,16 +70,18 @@ class RecipeController extends Controller
                 'prep_time' => 'sometimes|integer|min:1',
                 'cook_time' => 'sometimes|integer|min:1',
                 'difficulty' => ['sometimes', Rule::in(['easy', 'medium', 'hard'])],
-                'description' => 'sometimes|string'
+                'description' => 'sometimes|string',
             ]);
 
             $recipe->update($validated);
+
             return response()->json([
                 'message' => 'Recipe updated successfully',
-                'recipe' => new RecipeResource($recipe)
+                'recipe' => new RecipeResource($recipe),
             ], 201);
         } catch (\Illuminate\Validation\ValidationException $ValidationException) {
             Log::info($ValidationException->errors());
+
             return response()->json(['errors' => $ValidationException->errors()], 422);
         } catch (\Exception $exception) {
             return response()->json(['errors' => $exception->getMessage()], 422);
@@ -85,19 +92,20 @@ class RecipeController extends Controller
     {
         Log::info('Incoming Request Data:');
         $recipe = Recipe::find($id);
-        if (!$recipe) {
+        if (! $recipe) {
             return response()->json(['message' => 'Recipe not found'], 404);
         }
         $recipe->delete();
+
         return response()->json(['message' => 'Recipe deleted'], 200);
     }
 
     public function filterByDifficulty($level)
     {
 
-        if (!$level || !in_array($level, ['easy', 'medium', 'hard'])) {
+        if (! $level || ! in_array($level, ['easy', 'medium', 'hard'])) {
             return response()->json([
-                'message' => 'Invalid difficulty level. Use easy, medium, or hard.'
+                'message' => 'Invalid difficulty level. Use easy, medium, or hard.',
             ], 400);
         }
 
@@ -105,7 +113,7 @@ class RecipeController extends Controller
 
         if ($recipes->isEmpty()) {
             return response()->json([
-                'message' => 'No recipes found for this difficulty.'
+                'message' => 'No recipes found for this difficulty.',
             ], 404);
         }
 
@@ -129,7 +137,7 @@ class RecipeController extends Controller
                 $ingredients = explode(',', $request->ingredients);
                 $query->where(function ($q) use ($ingredients) {
                     foreach ($ingredients as $ingredient) {
-                        $q->orWhere('ingredients', 'LIKE', '%' . trim($ingredient) . '%');
+                        $q->orWhere('ingredients', 'LIKE', '%'.trim($ingredient).'%');
                     }
                 });
             }
@@ -141,17 +149,17 @@ class RecipeController extends Controller
 
             $recipes = $query->get();
 
-
             Log::info('Search Results:', $recipes->toArray());
             if ($recipes->isEmpty()) {
                 return response()->json([
-                    'message' => 'No recipes found for this difficulty.'
+                    'message' => 'No recipes found for this difficulty.',
                 ], 404);
             }
 
             return RecipeResource::collection($recipes);
         } catch (\Illuminate\Validation\ValidationException $ValidationException) {
             Log::info($ValidationException->errors());
+
             return response()->json(['errors' => $ValidationException->errors()], 422);
         } catch (\Exception $exception) {
             return response()->json(['errors' => $exception->getMessage()], 422);
