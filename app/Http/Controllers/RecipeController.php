@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Resources\RecipeResource;
 use App\Models\Recipe;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
@@ -97,32 +98,41 @@ class RecipeController extends Controller
         }
         $recipe->delete();
 
-        return response()->json(['message' => 'Recipe deleted'], 200);
+        return response()->json(['message' => 'Recipe deleted'], 204);
     }
 
     public function filterByDifficulty($level)
     {
+        try {
+            if (! $level || ! in_array($level, ['easy', 'medium', 'hard'])) {
+                return response()->json([
+                    'message' => 'Invalid difficulty level. Use easy, medium, or hard.',
+                ], 400);
+            }
 
-        if (! $level || ! in_array($level, ['easy', 'medium', 'hard'])) {
-            return response()->json([
-                'message' => 'Invalid difficulty level. Use easy, medium, or hard.',
-            ], 400);
+            $recipes = Recipe::where('difficulty', $level)->get();
+
+            if ($recipes->isEmpty()) {
+                return response()->json([
+                    'message' => 'No recipes found for this difficulty.',
+                ], 404);
+            }
+
+            return RecipeResource::collection($recipes);
+        } catch (\Exception $exception) {
+            return response()->json(['errors' => $exception->getMessage()], 422);
         }
-
-        $recipes = Recipe::where('difficulty', $level)->get();
-
-        if ($recipes->isEmpty()) {
-            return response()->json([
-                'message' => 'No recipes found for this difficulty.',
-            ], 404);
-        }
-
-        return RecipeResource::collection($recipes);
     }
 
     public function searchRecipes(Request $request)
     {
         Log::info('Incoming Request Data:', $request->all());
+
+        DB::listen(function ($query) {
+            Log::info("SQL: {$query->sql}");
+            Log::info('Bindings: ', $query->bindings);
+            Log::info("Time: {$query->time}ms");
+        });
         try {
 
             $validated = $request->validate([
@@ -134,6 +144,7 @@ class RecipeController extends Controller
             $query = Recipe::query();
             // Filter by ingredients (comma-separated string)
             if ($request->has('ingredients')) {
+                Log::info('has ingredients');
                 $ingredients = explode(',', $request->ingredients);
                 $query->where(function ($q) use ($ingredients) {
                     foreach ($ingredients as $ingredient) {
@@ -143,16 +154,31 @@ class RecipeController extends Controller
             }
 
             // Filter by cooking time range
-            if ($request->has('min_time') && $request->has('max_time')) {
-                $query->whereRaw('(prep_time + cook_time) BETWEEN ? AND ?', [$request->min_time, $request->max_time]);
+
+            // if ($request->has('min_time') && $request->has('max_time')) {
+            //     Log::info("has time");
+            //     $query->whereRaw('(prep_time + cook_time) BETWEEN ? AND ?', [$request->min_time, $request->max_time]);
+            // }
+
+            $min_time = (int) $request->min_time;
+            if ($request->has('min_time')) {
+                // if min time is given
+                $query->whereRaw('(prep_time+cook_time) > ?', [$min_time]);
+            }
+            $max_time = (int) $request->max_time;
+            if ($request->has('max_time')) {
+                // if max time is given
+                $query->whereRaw('(prep_time + cook_time) < ? ', $max_time);
             }
 
+            DB::enableQueryLog();
             $recipes = $query->get();
-
+            $queryLog = DB::getQueryLog();
             Log::info('Search Results:', $recipes->toArray());
+            Log::info('Search SQL:', $queryLog);
             if ($recipes->isEmpty()) {
                 return response()->json([
-                    'message' => 'No recipes found for this difficulty.',
+                    'message' => 'No recipes found for this search.',
                 ], 404);
             }
 
